@@ -12,7 +12,7 @@ PYDOCSTYLE_CMD = (
 API_DOCS_TITLE = "# Welcome to the ZenML Api Docs\n"
 INTEGRATION_DOCS_TITLE = "# Welcome to the ZenML Integration Docs\n"
 
-API_DOCS = "core_code_docs"
+API_DOCS = "core_python_sdk_docs"
 INTEGRATION_DOCS = "integration_code_docs"
 
 
@@ -41,27 +41,35 @@ def to_md_file(
         f.write(markdown_str)
 
 
-def _is_module_ignored(module_name: str, ignored_modules: List[str]) -> bool:
-    """Checks if a given module is ignored."""
-    if module_name.split(".")[-1].startswith("_"):
-        return True
+# def _is_module_ignored(module_name: str, ignored_modules: List[str]) -> bool:
+#     """Check if a given module is ignored."""
+#     if module_name.split(".")[-1].startswith("_"):
+#         return True
 
-    for ignored_module in ignored_modules:
-        if module_name == ignored_module:
-            return True
+#     for ignored_module in ignored_modules:
+#         if module_name == ignored_module:
+#             return True
 
-        # Check is module is subpackage of an ignored package
-        if module_name.startswith(ignored_module + "."):
-            return True
+#         # Check is module is subpackage of an ignored package
+#         if module_name.startswith(f"{ignored_module}."):
+#             return True
 
-    return False
+#     return False
 
 
 def generate_title(s: str) -> str:
-    """Remove underscores and capitalize first letter to each word."""
+    """Remove underscores and capitalize first letter to each word.
+
+    Args:
+        s: String to be converted to title
+
+    Returns:
+        Title string
+    """
+    if s == "core_python_sdk_docs":
+        return "Core Python SDK docs"
     s = s.replace("_", " ")
-    s = s.title()
-    return s
+    return s.title()
 
 
 def create_entity_docs(
@@ -113,8 +121,8 @@ def create_entity_docs(
                     out_path=api_doc_file_dir,
                 )
 
-                relative_base_path = "/".join(item.parts[1:-1])
                 if index_file_contents:
+                    relative_base_path = "/".join(item.parts[1:-1])
                     index_entry = (
                         f"# [{item_name}]"
                         f"({relative_base_path}/{item.stem})\n\n"
@@ -134,6 +142,13 @@ def create_cli_docs(
     ignored_modules: List[str],
     sources_path: Path,
 ) -> None:
+    """Create structure for mkdocs with separate md files for each top level.
+
+    Args:
+        cli_dev_doc_file_dir: Directory in which to save the api/docs
+        ignored_modules: List of entities to ignore
+        sources_path: Path to the zenml src directory
+    """
     # TODO [MEDIUM]: Find Solution for issue with click-decorated functions
     #  Some resources concerning this issue can be found here
     #  https://github.com/mkdocstrings/mkdocstrings/issues/162
@@ -153,8 +168,10 @@ def generate_docs(
     ignored_modules: Optional[List[str]] = None,
     validate: bool = False,
 ) -> None:
-    """Generates top level separation of primary entities inside th zenml source
-    directory for the purpose of generating mkdocstring markdown files.
+    """Generate top level separation of primary entities.
+
+    This relates to entities inside the zenml source directory for the purpose
+    of generating mkdocstring markdown files.
 
     Args:
         path: Selected paths or import name for markdown generation.
@@ -172,7 +189,7 @@ def generate_docs(
     integrations_dev_doc_file_dir.mkdir(parents=True, exist_ok=True)
 
     if not ignored_modules:
-        ignored_modules = list()
+        ignored_modules = []
 
     # The Cli docs are treated differently as the user facing docs need to be
     # split from the developer-facing docs
