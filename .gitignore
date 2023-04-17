@@ -71,6 +71,7 @@ instance/
 # mkdocs documentation
 docs/mkdocs/integration_code_docs
 docs/mkdocs/core_code_docs
+docs/mkdocs/core_python_sdk_docs/
 docs/mkdocs/index.md
 
 # PyBuilder
