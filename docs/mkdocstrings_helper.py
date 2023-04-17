@@ -21,7 +21,7 @@ def to_md_file(
     filename: str,
     out_path: Path = Path("."),
 ) -> None:
-    """Creates an API docs file from a provided text.
+    """Create an API docs file from a provided text.
 
     Args:
         markdown_str (str): Markdown string with line breaks to write to file.
@@ -32,9 +32,7 @@ def to_md_file(
         # Don't write empty files
         return
 
-    md_file = filename
-    if not filename.endswith(".md"):
-        md_file = filename + ".md"
+    md_file = filename if filename.endswith(".md") else f"{filename}.md"
 
     print(f"Writing {md_file}.")
     with open(os.path.join(out_path, md_file), "w", encoding="utf-8") as f:
@@ -79,8 +77,7 @@ def create_entity_docs(
     index_file_contents: Optional[List[str]],
     md_prefix: Optional[str],
 ) -> Optional[List[str]]:
-    """Create structure for mkdocs with separate md files for each top level
-    entity.
+    """Create structure for mkdocs with separate md files for each top level entity.
 
     Args:
         api_doc_file_dir: Directory in which to save the api/docs
