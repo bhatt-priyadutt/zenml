@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Type, Union, cast
 from zenml.client import Client
 from zenml.logger import get_apidocs_link, get_logger
 from zenml.models import PipelineResponseModel, PipelineRunFilterModel
+from zenml.models.base_models import BaseResponseModel
 from zenml.post_execution.base_view import BaseView
 from zenml.post_execution.pipeline_run import PipelineRunView
 from zenml.utils.analytics_utils import AnalyticsEvent, track
@@ -37,7 +38,10 @@ def get_pipelines() -> List["PipelineView"]:
     """
     # TODO: [server] handle the active stack correctly
     client = Client()
-    pipelines = client.list_pipelines(workspace_id=client.active_workspace.id)
+    pipelines = client.list_pipelines(
+        workspace_id=client.active_workspace.id,
+        sort_by="desc:created",
+    )
     return [PipelineView(model) for model in pipelines.items]
 
 
@@ -133,7 +137,7 @@ def get_pipeline(
 class PipelineView(BaseView):
     """Post-execution pipeline class."""
 
-    MODEL_CLASS = PipelineResponseModel
+    MODEL_CLASS: Type[BaseResponseModel] = PipelineResponseModel
     REPR_KEYS = ["id", "name"]
 
     @property

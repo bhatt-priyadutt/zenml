@@ -29,6 +29,7 @@ from zenml.models.component_models import (
     ComponentResponseModel,
     ComponentUpdateModel,
 )
+from zenml.models.base_models import BaseRequestModel, BaseResponseModel
 from zenml.models.filter_models import Filter, BaseFilterModel
 from zenml.models.flavor_models import (
     FlavorFilterModel,
@@ -42,6 +43,7 @@ from zenml.models.pipeline_models import (
     PipelineResponseModel,
     PipelineUpdateModel,
 )
+from zenml.models.page_model import Page
 from zenml.models.pipeline_deployment_models import (
     PipelineDeploymentFilterModel,
     PipelineDeploymentRequestModel,
@@ -77,6 +79,7 @@ from zenml.models.schedule_model import (
     ScheduleFilterModel,
 )
 from zenml.models.secret_models import (
+    SecretBaseModel,
     SecretRequestModel,
     SecretFilterModel,
     SecretResponseModel,
@@ -116,6 +119,14 @@ from zenml.models.user_role_assignment_models import (
     UserRoleAssignmentFilterModel,
     UserRoleAssignmentRequestModel,
     UserRoleAssignmentResponseModel,
+)
+from zenml.models.code_repository_models import (
+    CodeRepositoryFilterModel,
+    CodeRepositoryRequestModel,
+    CodeRepositoryResponseModel,
+    CodeRepositoryUpdateModel,
+    CodeReferenceRequestModel,
+    CodeReferenceResponseModel,
 )
 
 ComponentResponseModel.update_forward_refs(
@@ -178,6 +189,11 @@ PipelineDeploymentResponseModel.update_forward_refs(
     StackResponseModel=StackResponseModel,
     PipelineBuildResponseModel=PipelineBuildResponseModel,
     ScheduleResponseModel=ScheduleResponseModel,
+    CodeReferenceResponseModel=CodeReferenceResponseModel,
+)
+
+PipelineDeploymentRequestModel.update_forward_refs(
+    CodeReferenceRequestModel=CodeReferenceRequestModel
 )
 
 PipelineRunResponseModel.update_forward_refs(
@@ -207,14 +223,30 @@ SecretResponseModel.update_forward_refs(
     UserResponseModel=UserResponseModel,
     WorkspaceResponseModel=WorkspaceResponseModel,
 )
+CodeRepositoryResponseModel.update_forward_refs(
+    UserResponseModel=UserResponseModel,
+    WorkspaceResponseModel=WorkspaceResponseModel,
+)
+CodeReferenceResponseModel.update_forward_refs(
+    UserResponseModel=UserResponseModel,
+    WorkspaceResponseModel=WorkspaceResponseModel,
+)
 
 __all__ = [
     "ArtifactRequestModel",
     "ArtifactResponseModel",
     "ArtifactFilterModel",
+    "BaseRequestModel",
+    "BaseResponseModel",
     "PipelineBuildFilterModel",
     "PipelineBuildRequestModel",
     "PipelineBuildResponseModel",
+    "CodeRepositoryFilterModel",
+    "CodeRepositoryRequestModel",
+    "CodeRepositoryResponseModel",
+    "CodeRepositoryUpdateModel",
+    "CodeReferenceRequestModel",
+    "CodeReferenceResponseModel",
     "ComponentRequestModel",
     "ComponentResponseModel",
     "ComponentUpdateModel",
@@ -224,6 +256,7 @@ __all__ = [
     "FlavorFilterModel",
     "FlavorUpdateModel",
     "BaseFilterModel",
+    "Page",
     "PipelineRequestModel",
     "PipelineResponseModel",
     "PipelineUpdateModel",
@@ -256,6 +289,7 @@ __all__ = [
     "ScheduleResponseModel",
     "ScheduleUpdateModel",
     "ScheduleFilterModel",
+    "SecretBaseModel",
     "SecretRequestModel",
     "SecretFilterModel",
     "SecretResponseModel",

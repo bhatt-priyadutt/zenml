@@ -17,6 +17,7 @@ from asyncio.log import logger
 from typing import Any, List
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import ORJSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from genericpath import isfile
@@ -28,6 +29,7 @@ from zenml.constants import API, HEALTH
 from zenml.zen_server.routers import (
     artifacts_endpoints,
     auth_endpoints,
+    code_repositories_endpoints,
     flavors_endpoints,
     pipeline_builds_endpoints,
     pipeline_deployments_endpoints,
@@ -68,6 +70,7 @@ app = FastAPI(
     title="ZenML",
     version=zenml.__version__,
     root_path=ROOT_URL_PATH,
+    default_response_class=ORJSONResponse,
 )
 
 app.add_middleware(
@@ -158,6 +161,7 @@ app.include_router(users_endpoints.current_user_router)
 app.include_router(users_endpoints.activation_router)
 app.include_router(pipeline_builds_endpoints.router)
 app.include_router(pipeline_deployments_endpoints.router)
+app.include_router(code_repositories_endpoints.router)
 
 
 def get_root_static_files() -> List[str]:

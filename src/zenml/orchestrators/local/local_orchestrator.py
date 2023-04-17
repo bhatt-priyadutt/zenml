@@ -14,7 +14,7 @@
 """Implementation of the ZenML local orchestrator."""
 
 import time
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Optional, Type
 from uuid import uuid4
 
 from zenml.client import Client
@@ -49,12 +49,15 @@ class LocalOrchestrator(BaseOrchestrator):
         self,
         deployment: "PipelineDeploymentResponseModel",
         stack: "Stack",
+        environment: Dict[str, str],
     ) -> Any:
         """Iterates through all steps and executes them sequentially.
 
         Args:
             deployment: The pipeline deployment to prepare or run.
             stack: The stack on which the pipeline is deployed.
+            environment: Environment variables to set in the orchestration
+                environment.
         """
         if deployment.schedule:
             logger.warning(
@@ -144,6 +147,15 @@ class LocalOrchestratorFlavor(BaseOrchestratorFlavor):
             A flavor docs url.
         """
         return self.generate_default_docs_url()
+
+    @property
+    def sdk_docs_url(self) -> Optional[str]:
+        """A url to point at SDK docs explaining this flavor.
+
+        Returns:
+            A flavor SDK docs url.
+        """
+        return self.generate_default_sdk_docs_url()
 
     @property
     def logo_url(self) -> str:

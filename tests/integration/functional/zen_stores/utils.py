@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from tests.integration.functional.utils import sample_name
 from zenml.client import Client
 from zenml.config.global_config import GlobalConfiguration
-from zenml.config.pipeline_configurations import PipelineSpec
+from zenml.config.pipeline_spec import PipelineSpec
 from zenml.config.store_config import StoreConfiguration
 from zenml.enums import (
     ArtifactType,
@@ -30,6 +30,9 @@ from zenml.models import (
     ArtifactFilterModel,
     ArtifactRequestModel,
     BaseFilterModel,
+    CodeRepositoryFilterModel,
+    CodeRepositoryRequestModel,
+    CodeRepositoryUpdateModel,
     ComponentFilterModel,
     ComponentRequestModel,
     ComponentUpdateModel,
@@ -143,6 +146,7 @@ class UserContext:
         password: Optional[str] = None,
         login: bool = False,
         existing_user: bool = False,
+        delete: bool = True,
     ):
         if existing_user:
             self.user_name = user_name
@@ -153,6 +157,7 @@ class UserContext:
         self.login = login
         self.password = password or random_str(32)
         self.existing_user = existing_user
+        self.delete = delete
 
     def __enter__(self):
         if not self.existing_user:
@@ -190,7 +195,7 @@ class UserContext:
             GlobalConfiguration._reset_instance(self.original_config)
             Client._reset_instance(self.original_client)
             _ = Client().zen_store
-        if not self.existing_user:
+        if not self.existing_user and self.delete:
             try:
                 self.store.delete_user(self.created_user.id)
             except KeyError:
@@ -350,9 +355,10 @@ class SecretContext:
         },
         user_id: Optional[uuid.UUID] = None,
         workspace_id: Optional[uuid.UUID] = None,
+        delete: bool = True,
     ):
         self.secret_name = (
-            sample_name("axls_secrets") if not secret_name else secret_name
+            sample_name("axls-secrets") if not secret_name else secret_name
         )
         self.scope = scope
         self.values = values
@@ -360,6 +366,7 @@ class SecretContext:
         self.workspace_id = workspace_id
         self.client = Client()
         self.store = self.client.zen_store
+        self.delete = delete
 
     def __enter__(self):
         new_secret = SecretRequestModel(
@@ -373,10 +380,11 @@ class SecretContext:
         return self.created_secret
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        try:
-            self.store.delete_secret(self.created_secret.id)
-        except KeyError:
-            pass
+        if self.delete:
+            try:
+                self.store.delete_secret(self.created_secret.id)
+            except KeyError:
+                pass
 
 
 AnyRequestModel = TypeVar("AnyRequestModel", bound=BaseRequestModel)
@@ -396,7 +404,11 @@ class CrudTestConfig(BaseModel):
         self,
     ) -> Callable[[BaseFilterModel], Page[AnyResponseModel]]:
         store = Client().zen_store
-        return getattr(store, f"list_{self.entity_name}s")
+        if self.entity_name.endswith("y"):
+            method_name = f"list_{self.entity_name[:-1]}ies"
+        else:
+            method_name = f"list_{self.entity_name}s"
+        return getattr(store, method_name)
 
     @property
     def get_method(self) -> Callable[[uuid.UUID], AnyResponseModel]:
@@ -507,8 +519,8 @@ pipeline_run_crud_test_config = CrudTestConfig(
 artifact_crud_test_config = CrudTestConfig(
     create_model=ArtifactRequestModel(
         name=sample_name("sample_artifact"),
-        data_type="",
-        materializer="",
+        data_type="module.class",
+        materializer="module.class",
         type=ArtifactType.DATA,
         uri="",
         user=uuid.uuid4(),
@@ -533,6 +545,7 @@ build_crud_test_config = CrudTestConfig(
         workspace=uuid.uuid4(),
         images={},
         is_local=False,
+        contains_code=True,
     ),
     filter_model=PipelineBuildFilterModel,
     entity_name="build",
@@ -547,6 +560,20 @@ deployment_crud_test_config = CrudTestConfig(
     ),
     filter_model=PipelineDeploymentFilterModel,
     entity_name="deployment",
+)
+code_repository_crud_test_config = CrudTestConfig(
+    create_model=CodeRepositoryRequestModel(
+        user=uuid.uuid4(),
+        workspace=uuid.uuid4(),
+        name=sample_name("sample_code_repository"),
+        config={},
+        source={"module": "module", "type": "user"},
+    ),
+    update_model=CodeRepositoryUpdateModel(
+        name=sample_name("updated_sample_code_repository")
+    ),
+    filter_model=CodeRepositoryFilterModel,
+    entity_name="code_repository",
 )
 
 # step_run_crud_test_config = CrudTestConfig(
@@ -581,4 +608,5 @@ list_of_entities = [
     secret_crud_test_config,
     build_crud_test_config,
     deployment_crud_test_config,
+    code_repository_crud_test_config,
 ]

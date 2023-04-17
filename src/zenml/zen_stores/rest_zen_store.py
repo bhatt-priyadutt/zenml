@@ -36,10 +36,12 @@ from pydantic import BaseModel, root_validator, validator
 
 import zenml
 from zenml.config.global_config import GlobalConfiguration
+from zenml.config.secrets_store_config import SecretsStoreConfiguration
 from zenml.config.store_config import StoreConfiguration
 from zenml.constants import (
     API,
     ARTIFACTS,
+    CODE_REPOSITORIES,
     CURRENT_USER,
     DISABLE_CLIENT_SERVER_MISMATCH_WARNING,
     ENV_ZENML_DISABLE_CLIENT_SERVER_MISMATCH_WARNING,
@@ -80,6 +82,10 @@ from zenml.models import (
     ArtifactRequestModel,
     ArtifactResponseModel,
     BaseFilterModel,
+    CodeRepositoryFilterModel,
+    CodeRepositoryRequestModel,
+    CodeRepositoryResponseModel,
+    CodeRepositoryUpdateModel,
     ComponentFilterModel,
     ComponentRequestModel,
     ComponentResponseModel,
@@ -189,7 +195,7 @@ class RestZenStoreConfiguration(StoreConfiguration):
 
     type: StoreType = StoreType.REST
 
-    secrets_store: Optional[RestSecretsStoreConfiguration] = None
+    secrets_store: Optional[SecretsStoreConfiguration] = None
 
     username: Optional[str] = None
     password: Optional[str] = None
@@ -199,8 +205,8 @@ class RestZenStoreConfiguration(StoreConfiguration):
 
     @validator("secrets_store")
     def validate_secrets_store(
-        cls, secrets_store: Optional[RestSecretsStoreConfiguration]
-    ) -> RestSecretsStoreConfiguration:
+        cls, secrets_store: Optional[SecretsStoreConfiguration]
+    ) -> SecretsStoreConfiguration:
         """Ensures that the secrets store uses an associated REST secrets store.
 
         Args:
@@ -1792,6 +1798,91 @@ class RestZenStore(BaseZenStore):
             filter_model=run_metadata_filter_model,
         )
 
+    # -----------------
+    # Code Repositories
+    # -----------------
+
+    def create_code_repository(
+        self, code_repository: CodeRepositoryRequestModel
+    ) -> CodeRepositoryResponseModel:
+        """Creates a new code repository.
+
+        Args:
+            code_repository: Code repository to be created.
+
+        Returns:
+            The newly created code repository.
+        """
+        return self._create_workspace_scoped_resource(
+            resource=code_repository,
+            response_model=CodeRepositoryResponseModel,
+            route=CODE_REPOSITORIES,
+        )
+
+    def get_code_repository(
+        self, code_repository_id: UUID
+    ) -> CodeRepositoryResponseModel:
+        """Gets a specific code repository.
+
+        Args:
+            code_repository_id: The ID of the code repository to get.
+
+        Returns:
+            The requested code repository, if it was found.
+        """
+        return self._get_resource(
+            resource_id=code_repository_id,
+            route=CODE_REPOSITORIES,
+            response_model=CodeRepositoryResponseModel,
+        )
+
+    def list_code_repositories(
+        self, filter_model: CodeRepositoryFilterModel
+    ) -> Page[CodeRepositoryResponseModel]:
+        """List all code repositories.
+
+        Args:
+            filter_model: All filter parameters including pagination
+                params.
+
+        Returns:
+            A page of all code repositories.
+        """
+        return self._list_paginated_resources(
+            route=CODE_REPOSITORIES,
+            response_model=CodeRepositoryResponseModel,
+            filter_model=filter_model,
+        )
+
+    def update_code_repository(
+        self, code_repository_id: UUID, update: CodeRepositoryUpdateModel
+    ) -> CodeRepositoryResponseModel:
+        """Updates an existing code repository.
+
+        Args:
+            code_repository_id: The ID of the code repository to update.
+            update: The update to be applied to the code repository.
+
+        Returns:
+            The updated code repository.
+        """
+        return self._update_resource(
+            resource_id=code_repository_id,
+            resource_update=update,
+            response_model=CodeRepositoryResponseModel,
+            route=CODE_REPOSITORIES,
+        )
+
+    def delete_code_repository(self, code_repository_id: UUID) -> None:
+        """Deletes a code repository.
+
+        Args:
+            code_repository_id: The ID of the code repository to delete.
+        """
+        self._delete_resource(
+            resource_id=code_repository_id, route=CODE_REPOSITORIES
+        )
+
     # =======================
     # Internal helper methods
     # =======================
@@ -2326,21 +2417,23 @@ class RestZenStore(BaseZenStore):
         resource_update: BaseModel,
         response_model: Type[AnyResponseModel],
         route: str,
+        params: Optional[Dict[str, Any]] = None,
     ) -> AnyResponseModel:
         """Update an existing resource.
 
         Args:
             resource_id: The id of the resource to update.
             resource_update: The resource update.
-            route: The resource REST API route to use.
             response_model: Optional model to use to deserialize the response
                 body. If not provided, the resource class itself will be used.
+            route: The resource REST API route to use.
+            params: Optional query parameters to pass to the endpoint.
 
         Returns:
             The updated resource.
         """
         response_body = self.put(
-            f"{route}/{str(resource_id)}", body=resource_update
+            f"{route}/{str(resource_id)}", body=resource_update, params=params
         )
 
         return response_model.parse_obj(response_body)

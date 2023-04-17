@@ -26,6 +26,7 @@ class StepRunInfo(StrictBaseModel):
     step_run_id: UUID
     run_id: UUID
     run_name: str
+    pipeline_step_name: str
 
     config: StepConfiguration
     pipeline: PipelineConfiguration
@@ -51,6 +52,6 @@ class StepRunInfo(StrictBaseModel):
                 "the build was manually deleted."
             )
 
-        # TODO: use property once available
-        pipeline_step_name = Client().get_run_step(self.step_run_id).name
-        return run.build.get_image(component_key=key, step=pipeline_step_name)
+        return run.build.get_image(
+            component_key=key, step=self.pipeline_step_name
+        )

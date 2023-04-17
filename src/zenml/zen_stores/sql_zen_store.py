@@ -40,12 +40,18 @@ import pymysql
 from pydantic import root_validator, validator
 from sqlalchemy import asc, desc, func, text
 from sqlalchemy.engine import URL, Engine, make_url
-from sqlalchemy.exc import ArgumentError, NoResultFound, OperationalError
+from sqlalchemy.exc import (
+    ArgumentError,
+    IntegrityError,
+    NoResultFound,
+    OperationalError,
+)
 from sqlalchemy.orm import noload
 from sqlmodel import Session, create_engine, or_, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from zenml.config.global_config import GlobalConfiguration
+from zenml.config.secrets_store_config import SecretsStoreConfiguration
 from zenml.config.store_config import StoreConfiguration
 from zenml.constants import (
     ENV_ZENML_DISABLE_DATABASE_MIGRATION,
@@ -71,6 +77,11 @@ from zenml.models import (
     ArtifactRequestModel,
     ArtifactResponseModel,
     BaseFilterModel,
+    CodeReferenceRequestModel,
+    CodeRepositoryFilterModel,
+    CodeRepositoryRequestModel,
+    CodeRepositoryResponseModel,
+    CodeRepositoryUpdateModel,
     ComponentFilterModel,
     ComponentRequestModel,
     ComponentResponseModel,
@@ -150,6 +161,7 @@ from zenml.zen_stores.base_zen_store import (
     DEFAULT_STACK_NAME,
     BaseZenStore,
 )
+from zenml.zen_stores.enums import StoreEvent
 from zenml.zen_stores.migrations.alembic import (
     ZENML_ALEMBIC_START_REVISION,
     Alembic,
@@ -157,6 +169,8 @@ from zenml.zen_stores.migrations.alembic import (
 from zenml.zen_stores.schemas import (
     ArtifactSchema,
     BaseSchema,
+    CodeReferenceSchema,
+    CodeRepositorySchema,
     FlavorSchema,
     IdentitySchema,
     NamedSchema,
@@ -253,11 +267,14 @@ class SqlZenStoreConfiguration(StoreConfiguration):
             pool.
         max_overflow: The maximum number of connections to allow in the
             SQLAlchemy pool in addition to the pool_size.
+        pool_pre_ping: Enable emitting a test statement on the SQL connection
+            at the start of each connection pool checkout, to test that the
+            database connection is still viable.
     """
 
     type: StoreType = StoreType.SQL
 
-    secrets_store: Optional[SqlSecretsStoreConfiguration] = None
+    secrets_store: Optional[SecretsStoreConfiguration] = None
 
     driver: Optional[SQLDatabaseDriver] = None
     database: Optional[str] = None
@@ -269,11 +286,12 @@ class SqlZenStoreConfiguration(StoreConfiguration):
     ssl_verify_server_cert: bool = False
     pool_size: int = 20
     max_overflow: int = 20
+    pool_pre_ping: bool = True
 
     @validator("secrets_store")
     def validate_secrets_store(
-        cls, secrets_store: Optional[SqlSecretsStoreConfiguration]
-    ) -> SqlSecretsStoreConfiguration:
+        cls, secrets_store: Optional[SecretsStoreConfiguration]
+    ) -> SecretsStoreConfiguration:
         """Ensures that the secrets store is initialized with a default SQL secrets store.
 
         Args:
@@ -557,6 +575,7 @@ class SqlZenStoreConfiguration(StoreConfiguration):
             engine_args = {
                 "pool_size": self.pool_size,
                 "max_overflow": self.max_overflow,
+                "pool_pre_ping": self.pool_pre_ping,
             }
 
             sql_url = sql_url._replace(
@@ -936,8 +955,7 @@ class SqlZenStore(BaseZenStore):
     # ------
     # Stacks
     # ------
-
-    @track(AnalyticsEvent.REGISTERED_STACK)
+    @track(AnalyticsEvent.REGISTERED_STACK, v2=True)
     def create_stack(self, stack: StackRequestModel) -> StackResponseModel:
         """Register a new stack.
 
@@ -958,11 +976,15 @@ class SqlZenStore(BaseZenStore):
                 )
 
             # Get the Schemas of all components mentioned
-            component_ids = [
-                component_id
-                for list_of_component_ids in stack.components.values()
-                for component_id in list_of_component_ids
-            ]
+            component_ids = (
+                [
+                    component_id
+                    for list_of_component_ids in stack.components.values()
+                    for component_id in list_of_component_ids
+                ]
+                if stack.components is not None
+                else []
+            )
             filters = [
                 (StackComponentSchema.id == component_id)
                 for component_id in component_ids
@@ -1036,7 +1058,7 @@ class SqlZenStore(BaseZenStore):
                 filter_model=stack_filter_model,
             )
 
-    @track(AnalyticsEvent.UPDATED_STACK)
+    @track(AnalyticsEvent.UPDATED_STACK, v2=True)
     def update_stack(
         self, stack_id: UUID, stack_update: StackUpdateModel
     ) -> StackResponseModel:
@@ -1219,8 +1241,7 @@ class SqlZenStore(BaseZenStore):
     # ----------------
     # Stack components
     # ----------------
-
-    @track(AnalyticsEvent.REGISTERED_STACK_COMPONENT)
+    @track(AnalyticsEvent.REGISTERED_STACK_COMPONENT, v2=True)
     def create_stack_component(
         self,
         component: ComponentRequestModel,
@@ -1260,6 +1281,9 @@ class SqlZenStore(BaseZenStore):
                 flavor=component.flavor,
                 configuration=base64.b64encode(
                     json.dumps(component.configuration).encode("utf-8")
+                ),
+                labels=base64.b64encode(
+                    json.dumps(component.labels).encode("utf-8")
                 ),
             )
 
@@ -1541,6 +1565,7 @@ class SqlZenStore(BaseZenStore):
     # Stack component flavors
     # -----------------------
 
+    @track(AnalyticsEvent.CREATED_FLAVOR, v1=False, v2=True)
     def create_flavor(self, flavor: FlavorRequestModel) -> FlavorResponseModel:
         """Creates a new stack component flavor.
 
@@ -1594,6 +1619,7 @@ class SqlZenStore(BaseZenStore):
                     user_id=flavor.user,
                     logo_url=flavor.logo_url,
                     docs_url=flavor.docs_url,
+                    sdk_docs_url=flavor.sdk_docs_url,
                     is_custom=flavor.is_custom,
                 )
                 session.add(new_flavor)
@@ -1623,6 +1649,7 @@ class SqlZenStore(BaseZenStore):
 
             if not existing_flavor:
                 raise KeyError(f"Flavor with ID {flavor_id} not found.")
+
             existing_flavor.update(flavor_update=flavor_update)
             session.add(existing_flavor)
             session.commit()
@@ -1870,6 +1897,9 @@ class SqlZenStore(BaseZenStore):
                 raise IllegalOperationError(
                     "The default user account cannot be deleted."
                 )
+
+            self._trigger_event(StoreEvent.USER_DELETED, user_id=user.id)
+
             session.delete(user)
             session.commit()
 
@@ -2474,7 +2504,7 @@ class SqlZenStore(BaseZenStore):
     # Workspaces
     # --------
 
-    @track(AnalyticsEvent.CREATED_WORKSPACE)
+    @track(AnalyticsEvent.CREATED_WORKSPACE, v2=True)
     def create_workspace(
         self, workspace: WorkspaceRequestModel
     ) -> WorkspaceResponseModel:
@@ -2617,14 +2647,17 @@ class SqlZenStore(BaseZenStore):
                     "The default workspace cannot be deleted."
                 )
 
+            self._trigger_event(
+                StoreEvent.WORKSPACE_DELETED, workspace_id=workspace.id
+            )
+
             session.delete(workspace)
             session.commit()
 
     # ---------
     # Pipelines
     # ---------
-
-    @track(AnalyticsEvent.CREATE_PIPELINE)
+    @track(AnalyticsEvent.CREATE_PIPELINE, v2=True)
     def create_pipeline(
         self,
         pipeline: PipelineRequestModel,
@@ -2885,8 +2918,15 @@ class SqlZenStore(BaseZenStore):
             The newly created deployment.
         """
         with Session(self.engine) as session:
-            # Create the build
-            new_deployment = PipelineDeploymentSchema.from_request(deployment)
+            code_reference_id = self._create_or_reuse_code_reference(
+                session=session,
+                workspace_id=deployment.workspace,
+                code_reference=deployment.code_reference,
+            )
+
+            new_deployment = PipelineDeploymentSchema.from_request(
+                deployment, code_reference_id=code_reference_id
+            )
             session.add(new_deployment)
             session.commit()
             session.refresh(new_deployment)
@@ -3208,10 +3248,10 @@ class SqlZenStore(BaseZenStore):
         # it first will reduce concurrency issues.
         try:
             return self.create_run(pipeline_run), True
-        except EntityExistsError:
-            # Currently, an `EntityExistsError` is raised if either the run ID
-            # or the run name already exists. Therefore, we need to have another
-            # try block since getting the run by ID might still fail.
+        except (EntityExistsError, IntegrityError):
+            # Catch both `EntityExistsError`` and `IntegrityError`` exceptions
+            # since either one can be raised by the database when trying
+            # to create a new pipeline run with duplicate ID or name.
             try:
                 return self.get_run(pipeline_run.id), False
             except KeyError:
@@ -3466,6 +3506,7 @@ class SqlZenStore(BaseZenStore):
             select(StepRunInputArtifactSchema)
             .where(StepRunInputArtifactSchema.step_id == run_step_id)
             .where(StepRunInputArtifactSchema.artifact_id == artifact_id)
+            .where(StepRunInputArtifactSchema.name == name)
         ).first()
         if assignment is not None:
             return
@@ -3855,6 +3896,158 @@ class SqlZenStore(BaseZenStore):
                 filter_model=run_metadata_filter_model,
             )
 
+    # -----------------
+    # Code Repositories
+    # -----------------
+
+    def create_code_repository(
+        self, code_repository: CodeRepositoryRequestModel
+    ) -> CodeRepositoryResponseModel:
+        """Creates a new code repository.
+
+        Args:
+            code_repository: Code repository to be created.
+
+        Returns:
+            The newly created code repository.
+
+        Raises:
+            EntityExistsError: If a code repository with the given name already
+                exists.
+        """
+        with Session(self.engine) as session:
+            existing_repo = session.exec(
+                select(CodeRepositorySchema)
+                .where(CodeRepositorySchema.name == code_repository.name)
+                .where(
+                    CodeRepositorySchema.workspace_id
+                    == code_repository.workspace
+                )
+            ).first()
+            if existing_repo is not None:
+                raise EntityExistsError(
+                    f"Unable to create code repository in workspace "
+                    f"'{code_repository.workspace}': A code repository with "
+                    "this name already exists."
+                )
+
+            new_repo = CodeRepositorySchema.from_request(code_repository)
+            session.add(new_repo)
+            session.commit()
+            session.refresh(new_repo)
+
+            return new_repo.to_model()
+
+    def get_code_repository(
+        self, code_repository_id: UUID
+    ) -> CodeRepositoryResponseModel:
+        """Gets a specific code repository.
+
+        Args:
+            code_repository_id: The ID of the code repository to get.
+
+        Returns:
+            The requested code repository, if it was found.
+
+        Raises:
+            KeyError: If no code repository with the given ID exists.
+        """
+        with Session(self.engine) as session:
+            repo = session.exec(
+                select(CodeRepositorySchema).where(
+                    CodeRepositorySchema.id == code_repository_id
+                )
+            ).first()
+            if repo is None:
+                raise KeyError(
+                    f"Unable to get code repository with ID "
+                    f"'{code_repository_id}': No code repository with this "
+                    "ID found."
+                )
+
+            return repo.to_model()
+
+    def list_code_repositories(
+        self, filter_model: CodeRepositoryFilterModel
+    ) -> Page[CodeRepositoryResponseModel]:
+        """List all code repositories.
+
+        Args:
+            filter_model: All filter parameters including pagination
+                params.
+
+        Returns:
+            A page of all code repositories.
+        """
+        with Session(self.engine) as session:
+            query = select(CodeRepositorySchema)
+            return self.filter_and_paginate(
+                session=session,
+                query=query,
+                table=CodeRepositorySchema,
+                filter_model=filter_model,
+            )
+
+    def update_code_repository(
+        self, code_repository_id: UUID, update: CodeRepositoryUpdateModel
+    ) -> CodeRepositoryResponseModel:
+        """Updates an existing code repository.
+
+        Args:
+            code_repository_id: The ID of the code repository to update.
+            update: The update to be applied to the code repository.
+
+        Returns:
+            The updated code repository.
+
+        Raises:
+            KeyError: If no code repository with the given name exists.
+        """
+        with Session(self.engine) as session:
+            existing_repo = session.exec(
+                select(CodeRepositorySchema).where(
+                    CodeRepositorySchema.id == code_repository_id
+                )
+            ).first()
+            if existing_repo is None:
+                raise KeyError(
+                    f"Unable to update code repository with ID "
+                    f"{code_repository_id}: No code repository with this ID "
+                    "found."
+                )
+
+            existing_repo.update(update)
+
+            session.add(existing_repo)
+            session.commit()
+
+            return existing_repo.to_model()
+
+    def delete_code_repository(self, code_repository_id: UUID) -> None:
+        """Deletes a code repository.
+
+        Args:
+            code_repository_id: The ID of the code repository to delete.
+
+        Raises:
+            KeyError: If no code repository with the given ID exists.
+        """
+        with Session(self.engine) as session:
+            existing_repo = session.exec(
+                select(CodeRepositorySchema).where(
+                    CodeRepositorySchema.id == code_repository_id
+                )
+            ).first()
+            if existing_repo is None:
+                raise KeyError(
+                    f"Unable to delete code repository with ID "
+                    f"{code_repository_id}: No code repository with this ID "
+                    "found."
+                )
+
+            session.delete(existing_repo)
+            session.commit()
+
     # =======================
     # Internal helper methods
     # =======================
@@ -4027,3 +4220,45 @@ class SqlZenStore(BaseZenStore):
             schema_name="run",
             session=session,
         )
+
+    def _create_or_reuse_code_reference(
+        self,
+        session: Session,
+        workspace_id: UUID,
+        code_reference: Optional["CodeReferenceRequestModel"],
+    ) -> Optional[UUID]:
+        """Creates or reuses a code reference.
+
+        Args:
+            session: The database session to use.
+            workspace_id: ID of the workspace in which the code reference
+                should be.
+            code_reference: Request of the reference to create.
+
+        Returns:
+            The code reference ID.
+        """
+        if not code_reference:
+            return None
+
+        existing_reference = session.exec(
+            select(CodeReferenceSchema)
+            .where(CodeReferenceSchema.workspace_id == workspace_id)
+            .where(
+                CodeReferenceSchema.code_repository_id
+                == code_reference.code_repository
+            )
+            .where(CodeReferenceSchema.commit == code_reference.commit)
+            .where(
+                CodeReferenceSchema.subdirectory == code_reference.subdirectory
+            )
+        ).first()
+        if existing_reference is not None:
+            return existing_reference.id
+
+        new_reference = CodeReferenceSchema.from_request(
+            code_reference, workspace_id=workspace_id
+        )
+
+        session.add(new_reference)
+        return new_reference.id
