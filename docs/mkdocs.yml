@@ -25,7 +25,7 @@ plugins:
         - ../src/zenml
 
 copyright: >
-  Copyright &copy; 2022 ZenML GmbH –
+  Copyright &copy; 2023 ZenML GmbH –
   <a href="#__consent">Change cookie settings</a>
 
 extra:
