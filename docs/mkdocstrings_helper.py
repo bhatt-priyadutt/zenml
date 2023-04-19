@@ -39,22 +39,6 @@ def to_md_file(
         f.write(markdown_str)
 
 
-# def _is_module_ignored(module_name: str, ignored_modules: List[str]) -> bool:
-#     """Check if a given module is ignored."""
-#     if module_name.split(".")[-1].startswith("_"):
-#         return True
-
-#     for ignored_module in ignored_modules:
-#         if module_name == ignored_module:
-#             return True
-
-#         # Check is module is subpackage of an ignored package
-#         if module_name.startswith(f"{ignored_module}."):
-#             return True
-
-#     return False
-
-
 def generate_title(s: str) -> str:
     """Remove underscores and capitalize first letter to each word.
 
@@ -64,8 +48,6 @@ def generate_title(s: str) -> str:
     Returns:
         Title string
     """
-    if s == "core_python_sdk_docs":
-        return "Core Python SDK docs"
     s = s.replace("_", " ")
     return s.title()
 
@@ -132,31 +114,6 @@ def create_entity_docs(
                     index_file_contents.append(index_entry)
 
     return index_file_contents
-
-
-def create_cli_docs(
-    cli_dev_doc_file_dir: Path,
-    ignored_modules: List[str],
-    sources_path: Path,
-) -> None:
-    """Create structure for mkdocs with separate md files for each top level.
-
-    Args:
-        cli_dev_doc_file_dir: Directory in which to save the api/docs
-        ignored_modules: List of entities to ignore
-        sources_path: Path to the zenml src directory
-    """
-    # TODO [MEDIUM]: Find Solution for issue with click-decorated functions
-    #  Some resources concerning this issue can be found here
-    #  https://github.com/mkdocstrings/mkdocstrings/issues/162
-    #  https://mkdocstrings.github.io/troubleshooting/#my-wrapped-function-shows-documentationcode-for-its-wrapper-instead-of-its-own
-    create_entity_docs(
-        api_doc_file_dir=cli_dev_doc_file_dir,
-        ignored_modules=ignored_modules,
-        sources_path=sources_path,
-        index_file_contents=None,
-        md_prefix="cli",
-    )
 
 
 def generate_docs(
