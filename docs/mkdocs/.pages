@@ -1,4 +1,5 @@
 nav:
     - ZenML: index.md
     - CLI docs: cli.md
+    - Server API docs: open_api.md
     - ...
