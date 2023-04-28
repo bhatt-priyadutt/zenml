@@ -156,3 +156,4 @@
 * [CLI Reference](https://apidocs.zenml.io/latest/cli/)
 * [Python SDK Reference](https://apidocs.zenml.io/latest/)
 * [API Reference](https://apidocs.zenml.io/latest/api/)
+* [Server API Reference](https://apidocs.zenml.io/latest/server-api/)
