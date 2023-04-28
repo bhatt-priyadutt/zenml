@@ -15,7 +15,10 @@ edit_uri: https://github.com/zenml-io/zenml/docs/
 plugins:
   - search
   - awesome-pages
-  - swagger-ui-tag
+  - swagger-ui-tag:
+      filter: true
+      tryItOutEnabled: false
+      supportedSubmitMethods: []
   - mkdocstrings:
       default_handler: python
       handlers:
