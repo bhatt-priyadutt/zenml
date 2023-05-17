@@ -39,6 +39,18 @@ import yaml
 from packaging import version
 
 from zenml import constants
+from zenml.api.pipeline_decorator import (
+    INSTANCE_CONFIGURATION,
+    PARAM_ENABLE_ARTIFACT_METADATA,
+    PARAM_ENABLE_ARTIFACT_VISUALIZATION,
+    PARAM_ENABLE_CACHE,
+    PARAM_EXTRA_OPTIONS,
+    PARAM_ON_FAILURE,
+    PARAM_ON_SUCCESS,
+    PARAM_PIPELINE_NAME,
+    PARAM_SETTINGS,
+    PIPELINE_INNER_FUNC_NAME,
+)
 from zenml.client import Client
 from zenml.config.compiler import Compiler
 from zenml.config.pipeline_configurations import (
@@ -93,20 +105,9 @@ if TYPE_CHECKING:
     StepConfigurationUpdateOrDict = Union[
         Dict[str, Any], StepConfigurationUpdate
     ]
-    HookSpecification = Union[str, "Source", FunctionType]
+    HookSpecification = Union[str, Source, FunctionType]
 
 logger = get_logger(__name__)
-
-PIPELINE_INNER_FUNC_NAME = "connect"
-INSTANCE_CONFIGURATION = "INSTANCE_CONFIGURATION"
-PARAM_PIPELINE_NAME = "name"
-PARAM_ENABLE_CACHE = "enable_cache"
-PARAM_ENABLE_ARTIFACT_METADATA = "enable_artifact_metadata"
-PARAM_ENABLE_ARTIFACT_VISUALIZATION = "enable_artifact_visualization"
-PARAM_SETTINGS = "settings"
-PARAM_EXTRA_OPTIONS = "extra"
-PARAM_ON_FAILURE = "on_failure"
-PARAM_ON_SUCCESS = "on_success"
 
 
 T = TypeVar("T", bound="BasePipeline")

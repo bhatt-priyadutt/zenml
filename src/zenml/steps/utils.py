@@ -16,12 +16,11 @@
 
 from typing import Any, Dict, Tuple
 
+from zenml.api.step_decorator import SINGLE_RETURN_OUT_NAME
 from zenml.logger import get_logger
 from zenml.steps.step_output import Output
 
 logger = get_logger(__name__)
-
-SINGLE_RETURN_OUT_NAME = "output"
 
 
 def resolve_type_annotation(obj: Any) -> Any:

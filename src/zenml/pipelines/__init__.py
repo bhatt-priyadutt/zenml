@@ -22,10 +22,9 @@ pipelines can be created as well from scratch, building on the `BasePipeline` cl
 Pipelines can be written as simple functions. They are created by using decorators appropriate to the specific use case you have. The moment it is `run`, a pipeline is compiled and passed directly to the orchestrator.
 """
 
-
+from zenml.api.pipeline_decorator import pipeline
 from zenml.config import DockerSettings
 from zenml.config.schedule import Schedule
 from zenml.pipelines.base_pipeline import BasePipeline
-from zenml.pipelines.pipeline_decorator import pipeline
 
 __all__ = ["BasePipeline", "DockerSettings", "pipeline", "Schedule"]

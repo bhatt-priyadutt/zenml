@@ -1,4 +1,4 @@
-#  Copyright (c) ZenML GmbH 2021. All Rights Reserved.
+#  Copyright (c) ZenML GmbH 2023. All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 #  permissions and limitations under the License.
 """Step decorator function."""
 
-from types import FunctionType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -29,24 +28,27 @@ from typing import (
     overload,
 )
 
-from zenml.steps import BaseStep
-
 if TYPE_CHECKING:
+    from types import FunctionType
+
     from zenml.config.base_settings import SettingsOrDict
     from zenml.config.source import Source
     from zenml.materializers.base_materializer import BaseMaterializer
+    from zenml.steps.base_step import BaseStep
 
-    MaterializerClassOrSource = Union[str, "Source", Type["BaseMaterializer"]]
-    HookSpecification = Union[str, "Source", FunctionType]
+    MaterializerClassOrSource = Union[str, Source, Type[BaseMaterializer]]
+    HookSpecification = Union[str, Source, FunctionType]
     OutputMaterializersSpecification = Union[
         "MaterializerClassOrSource",
         Sequence["MaterializerClassOrSource"],
         Mapping[str, "MaterializerClassOrSource"],
         Mapping[str, Sequence["MaterializerClassOrSource"]],
     ]
+    F = TypeVar("F", bound=Callable[..., Any])
 
 
 STEP_INNER_FUNC_NAME = "entrypoint"
+SINGLE_RETURN_OUT_NAME = "output"
 PARAM_STEP_NAME = "name"
 PARAM_ENABLE_CACHE = "enable_cache"
 PARAM_ENABLE_ARTIFACT_METADATA = "enable_artifact_metadata"
@@ -60,9 +62,6 @@ PARAM_SETTINGS = "settings"
 PARAM_EXTRA_OPTIONS = "extra"
 PARAM_ON_FAILURE = "on_failure"
 PARAM_ON_SUCCESS = "on_success"
-
-
-F = TypeVar("F", bound=Callable[..., Any])
 
 
 class _DecoratedStep(BaseStep):
@@ -84,7 +83,7 @@ class _DecoratedStep(BaseStep):
 
 
 @overload
-def step(_func: F) -> Type[BaseStep]:
+def step(_func: "F") -> Type["BaseStep"]:
     ...
 
 
@@ -102,12 +101,12 @@ def step(
     extra: Optional[Dict[str, Any]] = None,
     on_failure: Optional["HookSpecification"] = None,
     on_success: Optional["HookSpecification"] = None,
-) -> Callable[[F], Type[BaseStep]]:
+) -> Callable[["F"], Type["BaseStep"]]:
     ...
 
 
 def step(
-    _func: Optional[F] = None,
+    _func: Optional["F"] = None,
     *,
     name: Optional[str] = None,
     enable_cache: Optional[bool] = None,
@@ -120,7 +119,7 @@ def step(
     extra: Optional[Dict[str, Any]] = None,
     on_failure: Optional["HookSpecification"] = None,
     on_success: Optional["HookSpecification"] = None,
-) -> Union[Type[BaseStep], Callable[[F], Type[BaseStep]]]:
+) -> Union[Type["BaseStep"], Callable[["F"], Type["BaseStep"]]]:
     """Outer decorator function for the creation of a ZenML step.
 
     In order to be able to work with parameters such as `name`, it features a
@@ -162,7 +161,7 @@ def step(
         ZenML BaseStep
     """
 
-    def inner_decorator(func: F) -> Type[BaseStep]:
+    def inner_decorator(func: "F") -> Type["BaseStep"]:
         """Inner decorator function for the creation of a ZenML Step.
 
         Args:

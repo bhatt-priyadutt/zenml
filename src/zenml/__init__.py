@@ -28,3 +28,9 @@ init_logging()
 from pkgutil import extend_path
 
 __path__ = extend_path(__path__, __name__)
+
+# Define public Python API
+from zenml.api.pipeline_decorator import pipeline
+from zenml.api.step_decorator import step
+
+__all__ = ["pipeline", "step"]
