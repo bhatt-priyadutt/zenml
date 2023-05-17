@@ -64,24 +64,6 @@ PARAM_ON_FAILURE = "on_failure"
 PARAM_ON_SUCCESS = "on_success"
 
 
-class _DecoratedStep(BaseStep):
-    _CLASS_CONFIGURATION: ClassVar[Optional[Dict[str, Any]]] = None
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        class_config = self._CLASS_CONFIGURATION or {}
-        kwargs = {**class_config, **kwargs}
-        super().__init__(*args, **kwargs)
-
-    @property
-    def source_object(self) -> Any:
-        """The source object of this step.
-
-        Returns:
-            The source object of this step.
-        """
-        return self.entrypoint
-
-
 @overload
 def step(_func: "F") -> Type["BaseStep"]:
     ...
@@ -160,6 +142,24 @@ def step(
         The inner decorator which creates the step class based on the
         ZenML BaseStep
     """
+    from zenml.steps.base_step import BaseStep
+
+    class _DecoratedStep(BaseStep):
+        _CLASS_CONFIGURATION: ClassVar[Optional[Dict[str, Any]]] = None
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            class_config = self._CLASS_CONFIGURATION or {}
+            kwargs = {**class_config, **kwargs}
+            super().__init__(*args, **kwargs)
+
+        @property
+        def source_object(self) -> Any:
+            """The source object of this step.
+
+            Returns:
+                The source object of this step.
+            """
+            return self.entrypoint
 
     def inner_decorator(func: "F") -> Type["BaseStep"]:
         """Inner decorator function for the creation of a ZenML Step.
