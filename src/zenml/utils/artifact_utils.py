@@ -187,7 +187,7 @@ def _load_artifact(
         artifact_class.__qualname__,
         uri,
     )
-    materializer_object: BaseMaterializer = materializer_class(uri)
+    materializer_object: "BaseMaterializer" = materializer_class(uri)
     artifact = materializer_object.load(artifact_class)
     logger.debug("Artifact loaded successfully.")
 
@@ -196,8 +196,8 @@ def _load_artifact(
 
 def select_materializer(
     data_type: Type[Any],
-    materializer_classes: Sequence[Type[BaseMaterializer]],
-) -> Type[BaseMaterializer]:
+    materializer_classes: Sequence[Type["BaseMaterializer"]],
+) -> Type["BaseMaterializer"]:
     """Select a materializer for a given data type.
 
     Args:
