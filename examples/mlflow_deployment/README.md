@@ -104,13 +104,13 @@ deployment = continuous_deployment_pipeline(
 
 ```python
 from zenml import step
+from zenml.integrations.mlflow.model_deployers.mlflow_model_deployer import (
+    MLFlowModelDeployer,
+)
 from zenml.integrations.mlflow.services import MLFlowDeploymentService
 from zenml.steps import Output, StepContext
-from zenml.services import load_last_service_from_step
 
-...
 
-# Step to retrieve the service associated with the last pipeline run
 @step(enable_cache=False)
 def prediction_service_loader(
     pipeline_name: str,
@@ -204,7 +204,7 @@ deployer and MLflow experiment tracker components. Configuring a new stack
 could look like this:
 
 ```
-zenml integration install mlflow
+zenml integration install mlflow tensorflow
 zenml model-deployer register mlflow_deployer --flavor=mlflow
 zenml experiment-tracker register mlflow_tracker --flavor=mlflow
 zenml stack register local_mlflow_stack \
@@ -322,8 +322,8 @@ rm -rf zenml_examples
 # 📜 Learn more
 
 Our docs regarding the MLflow deployment integration can be found 
-[here](https://docs.zenml.io/component-gallery/model-deployers/mlflow).
+[here](https://docs.zenml.io/user-guide/component-guide/model-deployers/mlflow).
 
 If you want to learn more about deployment in ZenML in general or about how to 
 build your own deployer steps in ZenML check out our 
-[docs](https://docs.zenml.io/component-gallery/model-deployers/custom).
+[docs](https://docs.zenml.io/user-guide/component-guide/model-deployers/custom).

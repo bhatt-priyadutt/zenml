@@ -220,7 +220,7 @@ zenml stack register <STACK_NAME> -o <ORCHESTRATOR_NAME> ... --set
 {% hint style="info" %}
 ZenML will build a Docker image called `<CONTAINER_REGISTRY_URI>/zenml:<PIPELINE_NAME>` which includes your code and use
 it to run your pipeline steps in Vertex AI. Check
-out [this page](/docs/book/user-guide/advanced-guide/containerize-your-pipeline.md) if you want to learn
+out [this page](/docs/book/user-guide/advanced-guide/environment-management/containerize-your-pipeline.md) if you want to learn
 more about how ZenML builds these images and how you can customize them.
 {% endhint %}
 
@@ -236,10 +236,10 @@ Vertex comes with its own UI that you can use to find further details about your
 steps. For any runs executed on Vertex, you can get the URL to the Vertex UI in Python using the following code snippet:
 
 ```python
-from zenml.post_execution import get_run
+from zenml.client import Client
 
-pipeline_run = get_run("<PIPELINE_RUN_NAME>")
-orchestrator_url = deployer_step.metadata["orchestrator_url"].value
+pipeline_run = Client().get_pipeline_run("<PIPELINE_RUN_NAME>")
+orchestrator_url = pipeline_run.metadata["orchestrator_url"].value
 ```
 
 ### Run pipelines on a schedule
@@ -252,7 +252,7 @@ and [Cloud Functions](https://cloud.google.com/functions) services to enable sch
 following is the sequence of events that happen when running a pipeline on Vertex with a schedule:
 
 * A docker image is created and pushed (see
-  above [containerization](/docs/book/user-guide/advanced-guide/containerize-your-pipeline.md)).
+  above [containerization](/docs/book/user-guide/advanced-guide/environment-management/containerize-your-pipeline.md)).
 * The Vertex AI pipeline JSON file is copied to
   the [Artifact Store](../artifact-stores/artifact-stores.md) specified in
   your [Stack](/docs/book/user-guide/starter-guide/understand-stacks.md)
@@ -342,21 +342,21 @@ vertex_settings = VertexOrchestratorSettings(
 ```
 
 Check out
-the [API docs](https://apidocs.zenml.io/latest/integration\_code\_docs/integrations-gcp/#zenml.integrations.gcp.flavors.vertex\_orchestrator\_flavor.VertexOrchestratorSettings)
-for a full list of available attributes and [this docs page](/docs/book/user-guide/advanced-guide/configure-steps-pipelines.md) for
+the [SDK docs](https://sdkdocs.zenml.io/latest/integration\_code\_docs/integrations-gcp/#zenml.integrations.gcp.flavors.vertex\_orchestrator\_flavor.VertexOrchestratorSettings)
+for a full list of available attributes and [this docs page](/docs/book/user-guide/advanced-guide/pipelining-features/configure-steps-pipelines.md) for
 more information on how to specify settings.
 
 A concrete example of using the Vertex orchestrator can be
 found [here](https://github.com/zenml-io/zenml/tree/main/examples/vertex\_ai\_orchestration).
 
 For more information and a full list of configurable attributes of the Vertex orchestrator, check out
-the [API Docs](https://apidocs.zenml.io/latest/integration\_code\_docs/integrations-gcp/#zenml.integrations.gcp.orchestrators.vertex\_orchestrator.VertexOrchestrator)
+the [API Docs](https://sdkdocs.zenml.io/latest/integration\_code\_docs/integrations-gcp/#zenml.integrations.gcp.orchestrators.vertex\_orchestrator.VertexOrchestrator)
 .
 
 ### Enabling CUDA for GPU-backed hardware
 
 Note that if you wish to use this orchestrator to run steps on a GPU, you will need to
-follow [the instructions on this page](/docs/book/user-guide/advanced-guide/scale-compute-to-the-cloud.md) to ensure that it
+follow [the instructions on this page](/docs/book/user-guide/advanced-guide/environment-management/scale-compute-to-the-cloud.md) to ensure that it
 works. It requires adding some extra settings customization and is essential to enable CUDA for the GPU to give its full
 acceleration.
 
